@@ -108,6 +108,11 @@ func (a *kbagent) MemberLeave(ctx context.Context, cli client.Reader, opts *Opti
 	return a.ignoreOutput(a.checkedCallAction(ctx, cli, a.synthesizedComp.LifecycleActions.MemberLeave, lfa, opts))
 }
 
+func (a *kbagent) Reconfigure(ctx context.Context, cli client.Reader, opts *Options) error {
+	lfa := &reconfigure{}
+	return a.ignoreOutput(a.checkedCallAction(ctx, cli, a.synthesizedComp.LifecycleActions.Reconfigure, lfa, opts))
+}
+
 func (a *kbagent) AccountProvision(ctx context.Context, cli client.Reader, opts *Options, statement, user, password string) error {
 	lfa := &accountProvision{
 		statement: statement,

@@ -301,6 +301,18 @@ type ComponentDefinitionSpec struct {
 	// +optional
 	Services []ComponentService `json:"services,omitempty"`
 
+	// Specifies the file templates and volume mount parameters used by the Component.
+	//
+	// This field specifies a list of templates, and each template is represented as a ConfigMap, which may contain
+	// multiple files with each file being a key in the ConfigMap.
+	//
+	// The rendered files will be mounted into the Component's containers according to the specified mount parameters.
+	//
+	// This field is immutable.
+	//
+	// +optional
+	FileTemplates []ComponentFileTemplate `json:"fileTemplates,omitempty"`
+
 	// Specifies the configuration file templates and volume mount parameters used by the Component.
 	// It also includes descriptions of the parameters in the ConfigMaps, such as value range limitations.
 	//
@@ -1002,6 +1014,55 @@ type HostNetworkContainerPort struct {
 	// +kubebuilder:validation:MinItems=1
 	// +required
 	Ports []string `json:"ports"`
+}
+
+type ComponentFileTemplate struct {
+	// Specifies the name of the template.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([a-z0-9\.\-]*[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// Specifies the name of the referenced template ConfigMap object.
+	//
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([a-z0-9\.\-]*[a-z0-9])?$`
+	// +optional
+	Template string `json:"template,omitempty"`
+
+	// Specifies the namespace of the referenced template ConfigMap object.
+	//
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$`
+	// +kubebuilder:default="default"
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// Refers to the volume name of PodTemplate. The file produced through the template will be mounted to
+	// the corresponding volume. Must be a DNS_LABEL name.
+	// The volume name must be defined in podSpec.containers[*].volumeMounts.
+	//
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern:=`^[a-z]([a-z0-9\-]*[a-z0-9])?$`
+	// +optional
+	VolumeName string `json:"volumeName,omitempty"`
+
+	// The operator attempts to set default file permissions (0444).
+	//
+	// Must be specified as an octal value between 0000 and 0777 (inclusive),
+	// or as a decimal value between 0 and 511 (inclusive).
+	// YAML supports both octal and decimal values for file permissions.
+	//
+	// Please note that this setting only affects the permissions of the files themselves.
+	// Directories within the specified path are not impacted by this setting.
+	// It's important to be aware that this setting might conflict with other options
+	// that influence the file mode, such as fsGroup.
+	// In such cases, the resulting file mode may have additional bits set.
+	// Refers to documents of k8s.ConfigMapVolumeSource.defaultMode for more information.
+	//
+	// +optional
+	DefaultMode *int32 `json:"defaultMode,omitempty"`
 }
 
 type ComponentTemplateSpec struct {

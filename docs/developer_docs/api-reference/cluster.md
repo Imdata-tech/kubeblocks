@@ -1225,6 +1225,24 @@ and bind Services at Cluster creation time with <code>clusterComponentSpec.Servi
 </tr>
 <tr>
 <td>
+<code>fileTemplates</code><br/>
+<em>
+<a href="#apps.kubeblocks.io/v1.ComponentFileTemplate">
+[]ComponentFileTemplate
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies the file templates and volume mount parameters used by the Component.</p>
+<p>This field specifies a list of templates, and each template is represented as a ConfigMap, which may contain
+multiple files with each file being a key in the ConfigMap.</p>
+<p>The rendered files will be mounted into the Component&rsquo;s containers according to the specified mount parameters.</p>
+<p>This field is immutable.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>configs</code><br/>
 <em>
 <a href="#apps.kubeblocks.io/v1.ComponentConfigSpec">
@@ -5082,6 +5100,24 @@ and bind Services at Cluster creation time with <code>clusterComponentSpec.Servi
 </tr>
 <tr>
 <td>
+<code>fileTemplates</code><br/>
+<em>
+<a href="#apps.kubeblocks.io/v1.ComponentFileTemplate">
+[]ComponentFileTemplate
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies the file templates and volume mount parameters used by the Component.</p>
+<p>This field specifies a list of templates, and each template is represented as a ConfigMap, which may contain
+multiple files with each file being a key in the ConfigMap.</p>
+<p>The rendered files will be mounted into the Component&rsquo;s containers according to the specified mount parameters.</p>
+<p>This field is immutable.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>configs</code><br/>
 <em>
 <a href="#apps.kubeblocks.io/v1.ComponentConfigSpec">
@@ -5457,6 +5493,93 @@ string
 <td>
 <em>(Optional)</em>
 <p>Provides additional information about the current phase.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="apps.kubeblocks.io/v1.ComponentFileTemplate">ComponentFileTemplate
+</h3>
+<p>
+(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.ComponentDefinitionSpec">ComponentDefinitionSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Specifies the name of the template.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>template</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies the name of the referenced template ConfigMap object.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies the namespace of the referenced template ConfigMap object.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>volumeName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Refers to the volume name of PodTemplate. The file produced through the template will be mounted to
+the corresponding volume. Must be a DNS_LABEL name.
+The volume name must be defined in podSpec.containers[*].volumeMounts.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>defaultMode</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The operator attempts to set default file permissions (0444).</p>
+<p>Must be specified as an octal value between 0000 and 0777 (inclusive),
+or as a decimal value between 0 and 511 (inclusive).
+YAML supports both octal and decimal values for file permissions.</p>
+<p>Please note that this setting only affects the permissions of the files themselves.
+Directories within the specified path are not impacted by this setting.
+It&rsquo;s important to be aware that this setting might conflict with other options
+that influence the file mode, such as fsGroup.
+In such cases, the resulting file mode may have additional bits set.
+Refers to documents of k8s.ConfigMapVolumeSource.defaultMode for more information.</p>
 </td>
 </tr>
 </tbody>
