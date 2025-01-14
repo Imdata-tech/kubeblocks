@@ -989,7 +989,7 @@ type ClusterComponentVolumeClaimTemplate struct {
 	//
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
-	
+
 	// Refers to the name of a volumeMount defined in either:
 	//
 	// - `componentDefinition.spec.runtime.containers[*].volumeMounts`
