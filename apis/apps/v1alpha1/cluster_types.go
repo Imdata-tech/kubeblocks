@@ -980,6 +980,15 @@ type ClusterSwitchPolicy struct {
 }
 
 type ClusterComponentVolumeClaimTemplate struct {
+	// Specifies Labels to override or add for the PVC.
+	//
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Specifies Annotations to override or add for the PVC.
+	//
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 	// Refers to the name of a volumeMount defined in either:
 	//
 	// - `componentDefinition.spec.runtime.containers[*].volumeMounts`
@@ -1003,7 +1012,9 @@ type ClusterComponentVolumeClaimTemplate struct {
 func (r *ClusterComponentVolumeClaimTemplate) toVolumeClaimTemplate() corev1.PersistentVolumeClaimTemplate {
 	return corev1.PersistentVolumeClaimTemplate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: r.Name,
+			Labels:      r.Labels,
+			Annotations: r.Annotations,
+			Name:        r.Name,
 		},
 		Spec: r.Spec.ToV1PersistentVolumeClaimSpec(),
 	}
