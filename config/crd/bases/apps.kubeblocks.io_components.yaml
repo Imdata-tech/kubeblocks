@@ -9415,8 +9415,8 @@ spec:
                             additionalProperties:
                               type: string
                             description: |-
-                              Specifies the labels for the PVC of the volume. These labels can be overridden
-                              by labels defined at a higher level in the specification.
+                              Specifies the annotations for the PVC of the volume. These annotations can be overridden
+                              by annotations defined at a higher level in the specification.
                             type: object
                           labels:
                             additionalProperties:
@@ -13377,8 +13377,8 @@ spec:
                       additionalProperties:
                         type: string
                       description: |-
-                        Specifies the labels for the PVC of the volume. These labels can be overridden
-                        by labels defined at a higher level in the specification.
+                        Specifies the annotations for the PVC of the volume. These annotations can be overridden
+                        by annotations defined at a higher level in the specification.
                       type: object
                     labels:
                       additionalProperties:

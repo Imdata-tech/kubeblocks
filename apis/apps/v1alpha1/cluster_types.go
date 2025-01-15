@@ -986,8 +986,8 @@ type ClusterComponentVolumeClaimTemplate struct {
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
-	// Specifies the labels for the PVC of the volume. These labels can be overridden
-	// by labels defined at a higher level in the specification.
+	// Specifies the annotations for the PVC of the volume. These annotations can be overridden
+	// by annotations defined at a higher level in the specification.
 	//
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`

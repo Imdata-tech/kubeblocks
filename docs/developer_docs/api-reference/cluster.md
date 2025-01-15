@@ -16367,8 +16367,8 @@ map[string]string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Specifies the labels for the PVC of the volume. These labels can be overridden
-by labels defined at a higher level in the specification.</p>
+<p>Specifies the annotations for the PVC of the volume. These annotations can be overridden
+by annotations defined at a higher level in the specification.</p>
 </td>
 </tr>
 <tr>
