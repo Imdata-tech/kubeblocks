@@ -3214,7 +3214,8 @@ map[string]string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Specifies Labels to override or add for the PVC.</p>
+<p>Specifies the labels for the PVC of the volume. These labels can be overridden
+by labels defined at a higher level in the specification.</p>
 </td>
 </tr>
 <tr>
@@ -3226,7 +3227,8 @@ map[string]string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Specifies Annotations to override or add for the PVC.</p>
+<p>Specifies the annotations for the PVC of the volume. These annotations can be overridden
+by annotations defined at a higher level in the specification.</p>
 </td>
 </tr>
 <tr>
@@ -16352,7 +16354,8 @@ map[string]string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Specifies Labels to override or add for the PVC.</p>
+<p>Specifies the labels for the PVC of the volume. These labels can be overridden
+by labels defined at a higher level in the specification.</p>
 </td>
 </tr>
 <tr>
@@ -16364,7 +16367,8 @@ map[string]string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Specifies Annotations to override or add for the PVC.</p>
+<p>Specifies the labels for the PVC of the volume. These labels can be overridden
+by labels defined at a higher level in the specification.</p>
 </td>
 </tr>
 <tr>
