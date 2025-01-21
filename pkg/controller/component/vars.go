@@ -37,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1 "github.com/apecloud/kubeblocks/apis/apps/v1"
-	workloads "github.com/apecloud/kubeblocks/apis/workloads/v1"
 	"github.com/apecloud/kubeblocks/pkg/common"
 	"github.com/apecloud/kubeblocks/pkg/constant"
 	"github.com/apecloud/kubeblocks/pkg/controller/instanceset"
+	intctrlutil "github.com/apecloud/kubeblocks/pkg/controllerutil"
 	"github.com/apecloud/kubeblocks/pkg/generics"
 )
 
@@ -530,7 +530,7 @@ func composeHostValueFromServices(obj any, fqdn bool) string {
 		if !fqdn {
 			return svc.Name
 		}
-		return serviceFQDN(svc.Namespace, svc.Name)
+		return intctrlutil.ServiceFQDN(svc.Namespace, svc.Name)
 	}
 
 	svcNames := make([]string, 0)
@@ -1153,13 +1153,13 @@ func componentVarPodsGetter(ctx context.Context, cli client.Reader,
 	for i := range comp.Spec.Instances {
 		templates = append(templates, &comp.Spec.Instances[i])
 	}
-	names, err := instanceset.GenerateAllInstanceNames(comp.Name, comp.Spec.Replicas, templates, comp.Spec.OfflineInstances, workloads.Ordinals{})
+	names, err := instanceset.GenerateAllInstanceNames(comp.Name, comp.Spec.Replicas, templates, comp.Spec.OfflineInstances, appsv1.Ordinals{})
 	if err != nil {
 		return "", err
 	}
 	if fqdn {
 		for i := range names {
-			names[i] = PodFQDN(namespace, comp.Name, names[i])
+			names[i] = intctrlutil.PodFQDN(namespace, comp.Name, names[i])
 		}
 	}
 	return strings.Join(names, ","), nil
@@ -1189,7 +1189,7 @@ func componentVarPodsWithRoleGetter(ctx context.Context, cli client.Reader,
 	if fqdn {
 		fullCompName := constant.GenerateClusterComponentName(clusterName, compName)
 		for i := range names {
-			names[i] = PodFQDN(namespace, fullCompName, names[i])
+			names[i] = intctrlutil.PodFQDN(namespace, fullCompName, names[i])
 		}
 	}
 	return strings.Join(names, ","), nil
@@ -1252,8 +1252,12 @@ func resolveReferentObjects(synthesizedComp *SynthesizedComponent,
 }
 
 func resolveReferentComponents(synthesizedComp *SynthesizedComponent, objRef appsv1.ClusterObjectReference) ([]string, error) {
+	var (
+		mopt = objRef.MultipleClusterObjectOption
+	)
+
 	// match the current component when the multiple cluster object option not set
-	if len(objRef.CompDef) == 0 || (PrefixOrRegexMatched(synthesizedComp.CompDefName, objRef.CompDef) && objRef.MultipleClusterObjectOption == nil) {
+	if len(objRef.CompDef) == 0 || (PrefixOrRegexMatched(synthesizedComp.CompDefName, objRef.CompDef) && mopt == nil) {
 		return []string{synthesizedComp.Name}, nil
 	}
 
@@ -1263,18 +1267,36 @@ func resolveReferentComponents(synthesizedComp *SynthesizedComponent, objRef app
 			compNames = append(compNames, k)
 		}
 	}
-	switch len(compNames) {
-	case 1:
-		return compNames, nil
-	case 0:
-		return nil, apierrors.NewNotFound(schema.GroupResource{}, "") // the error msg is trivial
-	default:
-		if objRef.MultipleClusterObjectOption == nil {
-			return nil, fmt.Errorf("more than one referent component found: %s", strings.Join(compNames, ","))
-		} else {
+
+	if mopt == nil || mopt.RequireAllComponentObjects == nil || !*mopt.RequireAllComponentObjects {
+		switch len(compNames) {
+		case 1:
 			return compNames, nil
+		case 0:
+			return nil, apierrors.NewNotFound(schema.GroupResource{}, "") // the error msg is trivial
+		default:
+			if mopt == nil {
+				return nil, fmt.Errorf("more than one referent component found: %s", strings.Join(compNames, ","))
+			} else {
+				return compNames, nil
+			}
 		}
 	}
+
+	// objRef.MultipleClusterObjectOption.RequireAllComponentObjects == true
+	total := int32(0)
+	for compDef, cnt := range synthesizedComp.CompDef2CompCnt {
+		if PrefixOrRegexMatched(compDef, objRef.CompDef) {
+			total += cnt
+		}
+	}
+	if len(compNames) != int(total) {
+		return nil, fmt.Errorf("insufficient component objects to resolve vars, expected: %d, actual: %d", total, len(compNames))
+	}
+	if len(compNames) == 0 {
+		return nil, apierrors.NewNotFound(schema.GroupResource{}, "") // the error msg is trivial
+	}
+	return compNames, nil
 }
 
 func resolveClusterObjectVars(kind string, objRef appsv1.ClusterObjectReference, option *appsv1.VarOption,

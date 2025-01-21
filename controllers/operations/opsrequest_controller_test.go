@@ -40,7 +40,6 @@ import (
 	appsv1 "github.com/apecloud/kubeblocks/apis/apps/v1"
 	opsv1alpha1 "github.com/apecloud/kubeblocks/apis/operations/v1alpha1"
 	workloads "github.com/apecloud/kubeblocks/apis/workloads/v1"
-	"github.com/apecloud/kubeblocks/controllers/apps"
 	"github.com/apecloud/kubeblocks/pkg/constant"
 	"github.com/apecloud/kubeblocks/pkg/controller/component"
 	intctrlutil "github.com/apecloud/kubeblocks/pkg/generics"
@@ -147,7 +146,7 @@ var _ = Describe("OpsRequest Controller", func() {
 		By("mock pods are available and wait for cluster enter running phase")
 		podName := fmt.Sprintf("%s-%s-0", clusterObj.Name, mysqlCompName)
 		pod := testapps.MockInstanceSetPod(&testCtx, nil, clusterObj.Name, mysqlCompName,
-			podName, "leader", "ReadWrite")
+			podName, "leader")
 
 		// the opsRequest will use startTime to check some condition.
 		// if there is no sleep for 1 second, unstable error may occur.
@@ -194,7 +193,7 @@ var _ = Describe("OpsRequest Controller", func() {
 		testk8s.MockPodIsTerminating(ctx, testCtx, pod)
 		testk8s.RemovePodFinalizer(ctx, testCtx, pod)
 		testapps.MockInstanceSetPod(&testCtx, nil, clusterObj.Name, mysqlCompName,
-			pod.Name, "leader", "ReadWrite", scalingCtx.target)
+			pod.Name, "leader", scalingCtx.target)
 		Expect(testapps.ChangeObj(&testCtx, verticalScalingOpsRequest, func(lopsReq *opsv1alpha1.OpsRequest) {
 			if lopsReq.Annotations == nil {
 				lopsReq.Annotations = map[string]string{}
@@ -399,7 +398,7 @@ var _ = Describe("OpsRequest Controller", func() {
 				condition := meta.FindStatusCondition(fetched.Status.Conditions, appsv1.ConditionTypeProvisioningStarted)
 				g.Expect(condition).ShouldNot(BeNil())
 				g.Expect(condition.Status).Should(BeFalse())
-				g.Expect(condition.Reason).Should(Equal(apps.ReasonPreCheckFailed))
+				g.Expect(condition.Reason).Should(Equal("PreCheckFailed"))
 				g.Expect(condition.Message).Should(Equal("HorizontalScaleFailed: volume snapshot not support"))
 			}))
 

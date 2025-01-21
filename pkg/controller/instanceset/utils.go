@@ -35,37 +35,15 @@ import (
 	"github.com/apecloud/kubeblocks/pkg/constant"
 )
 
-const (
-	leaderPriority            = 1 << 5
-	followerReadWritePriority = 1 << 4
-	followerReadonlyPriority  = 1 << 3
-	followerNonePriority      = 1 << 2
-	learnerPriority           = 1 << 1
-	emptyPriority             = 1 << 0
-	// unknownPriority           = 0
-)
+const defaultPriority = 0
 
 // ComposeRolePriorityMap generates a priority map based on roles.
 func ComposeRolePriorityMap(roles []workloads.ReplicaRole) map[string]int {
 	rolePriorityMap := make(map[string]int)
-	rolePriorityMap[""] = emptyPriority
+	rolePriorityMap[""] = defaultPriority
 	for _, role := range roles {
 		roleName := strings.ToLower(role.Name)
-		switch {
-		case role.IsLeader:
-			rolePriorityMap[roleName] = leaderPriority
-		case role.CanVote:
-			switch role.AccessMode {
-			case workloads.NoneMode:
-				rolePriorityMap[roleName] = followerNonePriority
-			case workloads.ReadonlyMode:
-				rolePriorityMap[roleName] = followerReadonlyPriority
-			case workloads.ReadWriteMode:
-				rolePriorityMap[roleName] = followerReadWritePriority
-			}
-		default:
-			rolePriorityMap[roleName] = learnerPriority
-		}
+		rolePriorityMap[roleName] = role.UpdatePriority
 	}
 
 	return rolePriorityMap
@@ -88,67 +66,6 @@ func SortPods(pods []corev1.Pod, rolePriorityMap map[string]int, reverse bool) {
 // getRoleName gets role name of pod 'pod'
 func getRoleName(pod *corev1.Pod) string {
 	return strings.ToLower(pod.Labels[constant.RoleLabelKey])
-}
-
-// IsInstancesReady gives Instance level 'ready' state when all instances are available
-func IsInstancesReady(its *workloads.InstanceSet) bool {
-	if its == nil {
-		return false
-	}
-	// check whether the cluster has been initialized
-	if its.Status.ReadyInitReplicas != its.Status.InitReplicas {
-		return false
-	}
-	// check whether latest spec has been sent to the underlying workload
-	if its.Status.ObservedGeneration != its.Generation {
-		return false
-	}
-	// check whether the underlying workload is ready
-	if its.Spec.Replicas == nil {
-		return false
-	}
-	replicas := *its.Spec.Replicas
-	if its.Status.Replicas != replicas ||
-		its.Status.ReadyReplicas != replicas ||
-		its.Status.UpdatedReplicas != replicas {
-		return false
-	}
-	// check availableReplicas only if minReadySeconds is set
-	if its.Spec.MinReadySeconds > 0 && its.Status.AvailableReplicas != replicas {
-		return false
-	}
-
-	return true
-}
-
-// IsInstanceSetReady gives InstanceSet level 'ready' state:
-// 1. all instances are available
-// 2. and all members have role set (if they are role-ful)
-func IsInstanceSetReady(its *workloads.InstanceSet) bool {
-	instancesReady := IsInstancesReady(its)
-	if !instancesReady {
-		return false
-	}
-
-	// check whether role probe has done
-	if len(its.Spec.Roles) == 0 {
-		return true
-	}
-	membersStatus := its.Status.MembersStatus
-	if len(membersStatus) != int(*its.Spec.Replicas) {
-		return false
-	}
-	if its.Status.ReadyWithoutPrimary {
-		return true
-	}
-	hasLeader := false
-	for _, status := range membersStatus {
-		if status.ReplicaRole != nil && status.ReplicaRole.IsLeader {
-			hasLeader = true
-			break
-		}
-	}
-	return hasLeader
 }
 
 // AddAnnotationScope will add AnnotationScope defined by 'scope' to all keys in map 'annotations'.

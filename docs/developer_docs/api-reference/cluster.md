@@ -663,14 +663,14 @@ string
 <p>Specifies the name of the ServiceAccount required by the running Component.
 This ServiceAccount is used to grant necessary permissions for the Component&rsquo;s Pods to interact
 with other Kubernetes resources, such as modifying Pod labels or sending events.</p>
-<p>Defaults:
-If not specified, KubeBlocks automatically assigns a default ServiceAccount named &ldquo;kb-&#123;cluster.name&#125;&rdquo;,
-bound to a default role defined during KubeBlocks installation.</p>
-<p>Future Changes:
-Future versions might change the default ServiceAccount creation strategy to one per Component,
-potentially revising the naming to &ldquo;kb-&#123;cluster.name&#125;-&#123;component.name&#125;&rdquo;.</p>
-<p>Users can override the automatic ServiceAccount assignment by explicitly setting the name of
-an existed ServiceAccount in this field.</p>
+<p>If not specified, KubeBlocks automatically creates a default ServiceAccount named
+&ldquo;kb-&#123;componentdefinition.name&#125;&rdquo;, bound to a role with rules defined in ComponentDefinition&rsquo;s
+<code>policyRules</code> field. If needed (currently this means if any lifecycleAction is enabled),
+it will also be bound to a default role named
+&ldquo;kubeblocks-cluster-pod-role&rdquo;, which is installed together with KubeBlocks.
+If multiple components use the same ComponentDefinition, they will share one ServiceAccount.</p>
+<p>If the field is not empty, the specified ServiceAccount will be used, and KubeBlocks will not
+create a ServiceAccount. But KubeBlocks does create RoleBindings for the specified ServiceAccount.</p>
 </td>
 </tr>
 <tr>
@@ -1385,9 +1385,9 @@ ComponentAvailable
 <td>
 <em>(Optional)</em>
 <p>Enumerate all possible roles assigned to each replica of the Component, influencing its behavior.</p>
-<p>A replica can have zero to multiple roles.
-KubeBlocks operator determines the roles of each replica by invoking the <code>lifecycleActions.roleProbe</code> method.
-This action returns a list of roles for each replica, and the returned roles must be predefined in the <code>roles</code> field.</p>
+<p>A replica can have zero or one role.
+KubeBlocks operator determines the role of each replica by invoking the <code>lifecycleActions.roleProbe</code> method.
+This action returns the role for each replica, and the returned role must be predefined here.</p>
 <p>The roles assigned to a replica can influence various aspects of the Component&rsquo;s behavior, such as:</p>
 <ul>
 <li>Service selection: The Component&rsquo;s exposed Services may target replicas based on their roles using <code>roleSelector</code>.</li>
@@ -1478,7 +1478,6 @@ Kubernetes resources within the namespace.</p>
 <p>The purpose of this field is to automatically generate the necessary RBAC roles
 for the Component based on the specified policy rules.
 This ensures that the Pods in the Component has appropriate permissions to function.</p>
-<p>Note: This field is currently non-functional and is reserved for future implementation.</p>
 <p>This field is immutable.</p>
 </td>
 </tr>
@@ -2187,7 +2186,7 @@ SidecarDefinitionStatus
 <h3 id="apps.kubeblocks.io/v1.Action">Action
 </h3>
 <p>
-(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.ComponentLifecycleActions">ComponentLifecycleActions</a>, <a href="#apps.kubeblocks.io/v1.Probe">Probe</a>, <a href="#apps.kubeblocks.io/v1.ShardingLifecycleActions">ShardingLifecycleActions</a>)
+(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.ComponentLifecycleActions">ComponentLifecycleActions</a>, <a href="#apps.kubeblocks.io/v1.Probe">Probe</a>, <a href="#apps.kubeblocks.io/v1.ShardingLifecycleActions">ShardingLifecycleActions</a>, <a href="#workloads.kubeblocks.io/v1.MembershipReconfiguration">MembershipReconfiguration</a>)
 </p>
 <div>
 <p>Action defines a customizable hook or procedure tailored for different database engines,
@@ -2531,6 +2530,30 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Specifies whether to enable point-in-time recovery.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>incrementalBackupEnabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies whether to enable incremental backup.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>incrementalCronExpression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The cron expression for the incremental backup schedule. The timezone is in UTC. See <a href="https://en.wikipedia.org/wiki/Cron">https://en.wikipedia.org/wiki/Cron</a>.</p>
 </td>
 </tr>
 </tbody>
@@ -2989,15 +3012,14 @@ string
 <p>Specifies the name of the ServiceAccount required by the running Component.
 This ServiceAccount is used to grant necessary permissions for the Component&rsquo;s Pods to interact
 with other Kubernetes resources, such as modifying Pod labels or sending events.</p>
-<p>Defaults:
-To perform certain operational tasks, agent sidecars running in Pods require specific RBAC permissions.
-The service account will be bound to a default role named &ldquo;kubeblocks-cluster-pod-role&rdquo; which is installed together with KubeBlocks.
-If not specified, KubeBlocks automatically assigns a default ServiceAccount named &ldquo;kb-&#123;cluster.name&#125;&rdquo;</p>
-<p>Future Changes:
-Future versions might change the default ServiceAccount creation strategy to one per Component,
-potentially revising the naming to &ldquo;kb-&#123;cluster.name&#125;-&#123;component.name&#125;&rdquo;.</p>
-<p>Users can override the automatic ServiceAccount assignment by explicitly setting the name of
-an existed ServiceAccount in this field.</p>
+<p>If not specified, KubeBlocks automatically creates a default ServiceAccount named
+&ldquo;kb-&#123;componentdefinition.name&#125;&rdquo;, bound to a role with rules defined in ComponentDefinition&rsquo;s
+<code>policyRules</code> field. If needed (currently this means if any lifecycleAction is enabled),
+it will also be bound to a default role named
+&ldquo;kubeblocks-cluster-pod-role&rdquo;, which is installed together with KubeBlocks.
+If multiple components use the same ComponentDefinition, they will share one ServiceAccount.</p>
+<p>If the field is not empty, the specified ServiceAccount will be used, and KubeBlocks will not
+create a ServiceAccount. But KubeBlocks does create RoleBindings for the specified ServiceAccount.</p>
 </td>
 </tr>
 <tr>
@@ -3272,6 +3294,19 @@ Kubernetes core/v1.PersistentVolumeMode
 <td>
 <em>(Optional)</em>
 <p>Defines what type of volume is required by the claim, either Block or Filesystem.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>volumeAttributesClassName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.</p>
+<p>More info: <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass">https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass</a></p>
 </td>
 </tr>
 </table>
@@ -5220,9 +5255,9 @@ ComponentAvailable
 <td>
 <em>(Optional)</em>
 <p>Enumerate all possible roles assigned to each replica of the Component, influencing its behavior.</p>
-<p>A replica can have zero to multiple roles.
-KubeBlocks operator determines the roles of each replica by invoking the <code>lifecycleActions.roleProbe</code> method.
-This action returns a list of roles for each replica, and the returned roles must be predefined in the <code>roles</code> field.</p>
+<p>A replica can have zero or one role.
+KubeBlocks operator determines the role of each replica by invoking the <code>lifecycleActions.roleProbe</code> method.
+This action returns the role for each replica, and the returned role must be predefined here.</p>
 <p>The roles assigned to a replica can influence various aspects of the Component&rsquo;s behavior, such as:</p>
 <ul>
 <li>Service selection: The Component&rsquo;s exposed Services may target replicas based on their roles using <code>roleSelector</code>.</li>
@@ -5313,7 +5348,6 @@ Kubernetes resources within the namespace.</p>
 <p>The purpose of this field is to automatically generate the necessary RBAC roles
 for the Component based on the specified policy rules.
 This ensures that the Pods in the Component has appropriate permissions to function.</p>
-<p>Note: This field is currently non-functional and is reserved for future implementation.</p>
 <p>This field is immutable.</p>
 </td>
 </tr>
@@ -6129,14 +6163,14 @@ string
 <p>Specifies the name of the ServiceAccount required by the running Component.
 This ServiceAccount is used to grant necessary permissions for the Component&rsquo;s Pods to interact
 with other Kubernetes resources, such as modifying Pod labels or sending events.</p>
-<p>Defaults:
-If not specified, KubeBlocks automatically assigns a default ServiceAccount named &ldquo;kb-&#123;cluster.name&#125;&rdquo;,
-bound to a default role defined during KubeBlocks installation.</p>
-<p>Future Changes:
-Future versions might change the default ServiceAccount creation strategy to one per Component,
-potentially revising the naming to &ldquo;kb-&#123;cluster.name&#125;-&#123;component.name&#125;&rdquo;.</p>
-<p>Users can override the automatic ServiceAccount assignment by explicitly setting the name of
-an existed ServiceAccount in this field.</p>
+<p>If not specified, KubeBlocks automatically creates a default ServiceAccount named
+&ldquo;kb-&#123;componentdefinition.name&#125;&rdquo;, bound to a role with rules defined in ComponentDefinition&rsquo;s
+<code>policyRules</code> field. If needed (currently this means if any lifecycleAction is enabled),
+it will also be bound to a default role named
+&ldquo;kubeblocks-cluster-pod-role&rdquo;, which is installed together with KubeBlocks.
+If multiple components use the same ComponentDefinition, they will share one ServiceAccount.</p>
+<p>If the field is not empty, the specified ServiceAccount will be used, and KubeBlocks will not
+create a ServiceAccount. But KubeBlocks does create RoleBindings for the specified ServiceAccount.</p>
 </td>
 </tr>
 <tr>
@@ -7747,7 +7781,7 @@ ContainerVars
 <h3 id="apps.kubeblocks.io/v1.InstanceTemplate">InstanceTemplate
 </h3>
 <p>
-(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.ClusterComponentSpec">ClusterComponentSpec</a>, <a href="#apps.kubeblocks.io/v1.ComponentSpec">ComponentSpec</a>)
+(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.ClusterComponentSpec">ClusterComponentSpec</a>, <a href="#apps.kubeblocks.io/v1.ComponentSpec">ComponentSpec</a>, <a href="#workloads.kubeblocks.io/v1.InstanceSetSpec">InstanceSetSpec</a>)
 </p>
 <div>
 <p>InstanceTemplate allows customization of individual replica configurations in a Component.</p>
@@ -7787,6 +7821,24 @@ int32
 This field allows setting how many replicated instances of the Component,
 with the specific overrides in the InstanceTemplate, are created.
 The default value is 1. A value of 0 disables instance creation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ordinals</code><br/>
+<em>
+<a href="#apps.kubeblocks.io/v1.Ordinals">
+Ordinals
+</a>
+</em>
+</td>
+<td>
+<p>Specifies the desired Ordinals of this InstanceTemplate.
+The Ordinals used to specify the ordinal of the instance (pod) names to be generated under this InstanceTemplate.</p>
+<p>For example, if Ordinals is &#123;ranges: [&#123;start: 0, end: 1&#125;], discrete: [7]&#125;,
+then the instance names generated under this InstanceTemplate would be
+$(cluster.name)-$(component.name)-$(template.name)-0、$(cluster.name)-$(component.name)-$(template.name)-1 and
+$(cluster.name)-$(component.name)-$(template.name)-7</p>
 </td>
 </tr>
 <tr>
@@ -8170,6 +8222,19 @@ MultipleClusterObjectValueFormatFlatten
 <tbody>
 <tr>
 <td>
+<code>requireAllComponentObjects</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RequireAllComponentObjects controls whether all component objects must exist before resolving.
+If set to true, resolving will only proceed if all component objects are present.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>strategy</code><br/>
 <em>
 <a href="#apps.kubeblocks.io/v1.MultipleClusterObjectStrategy">
@@ -8320,6 +8385,46 @@ VarOption
 </td>
 <td>
 <em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="apps.kubeblocks.io/v1.Ordinals">Ordinals
+</h3>
+<p>
+(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.InstanceTemplate">InstanceTemplate</a>, <a href="#workloads.kubeblocks.io/v1.InstanceSetSpec">InstanceSetSpec</a>)
+</p>
+<div>
+<p>Ordinals represents a combination of continuous segments and individual values.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ranges</code><br/>
+<em>
+<a href="#apps.kubeblocks.io/v1.Range">
+[]Range
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>discrete</code><br/>
+<em>
+[]int32
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -8477,6 +8582,19 @@ Kubernetes core/v1.PersistentVolumeMode
 <td>
 <em>(Optional)</em>
 <p>Defines what type of volume is required by the claim, either Block or Filesystem.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>volumeAttributesClassName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.</p>
+<p>More info: <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass">https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass</a></p>
 </td>
 </tr>
 </tbody>
@@ -8698,13 +8816,52 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="apps.kubeblocks.io/v1.Range">Range
+</h3>
+<p>
+(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.Ordinals">Ordinals</a>)
+</p>
+<div>
+<p>Range represents a range with a start and an end value.
+It is used to define a continuous segment.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>start</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>end</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="apps.kubeblocks.io/v1.ReplicaRole">ReplicaRole
 </h3>
 <p>
-(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.ComponentDefinitionSpec">ComponentDefinitionSpec</a>)
+(<em>Appears on:</em><a href="#apps.kubeblocks.io/v1.ComponentDefinitionSpec">ComponentDefinitionSpec</a>, <a href="#workloads.kubeblocks.io/v1.InstanceSetSpec">InstanceSetSpec</a>, <a href="#workloads.kubeblocks.io/v1.MemberStatus">MemberStatus</a>)
 </p>
 <div>
-<p>ReplicaRole represents a role that can be assumed by a component instance.</p>
+<p>ReplicaRole represents a role that can be assigned to a component instance, defining its behavior and responsibilities.</p>
 </div>
 <table>
 <thead>
@@ -8722,50 +8879,54 @@ string
 </em>
 </td>
 <td>
-<p>Defines the role&rsquo;s identifier. It is used to set the &ldquo;apps.kubeblocks.io/role&rdquo; label value
-on the corresponding object.</p>
+<p>Name defines the role&rsquo;s unique identifier. This value is used to set the &ldquo;apps.kubeblocks.io/role&rdquo; label
+on the corresponding object to identify its role.</p>
+<p>For example, common role names include:
+- &ldquo;leader&rdquo;: The primary/master instance that handles write operations
+- &ldquo;follower&rdquo;: Secondary/replica instances that replicate data from the leader
+- &ldquo;learner&rdquo;: Read-only instances that don&rsquo;t participate in elections</p>
 <p>This field is immutable once set.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>serviceable</code><br/>
+<code>updatePriority</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UpdatePriority determines the order in which pods with different roles are updated.
+Pods are sorted by this priority (higher numbers = higher priority) and updated accordingly.
+Roles with the highest priority will be updated last.
+The default priority is 0.</p>
+<p>For example:
+- Leader role may have priority 2 (updated last)
+- Follower role may have priority 1 (updated before leader)
+- Learner role may have priority 0 (updated first)</p>
+<p>This field is immutable once set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>participatesInQuorum</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Indicates whether a replica assigned this role is capable of providing services.</p>
-<p>This field is immutable once set.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>writable</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Determines if a replica in this role has the authority to perform write operations.
-A writable replica can modify data, handle update operations.</p>
-<p>This field is immutable once set.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>votable</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies whether a replica with this role has voting rights.
-In distributed systems, this typically means the replica can participate in consensus decisions,
-configuration changes, or other processes that require a quorum.</p>
+<p>ParticipatesInQuorum indicates if pods with this role are counted when determining quorum.
+This affects update strategies that need to maintain quorum for availability. Roles participate
+in quorum should have higher update priority than roles do not participate in quorum.
+The default value is false.</p>
+<p>For example, in a 5-pod component where:
+- 2 learner pods (participatesInQuorum=false)
+- 2 follower pods (participatesInQuorum=true)
+- 1 leader pod (participatesInQuorum=true)
+The quorum size would be 3 (based on the 3 participating pods), allowing parallel updates
+of 2 learners and 1 follower while maintaining quorum.</p>
 <p>This field is immutable once set.</p>
 </td>
 </tr>
@@ -14829,6 +14990,30 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Specifies whether to enable point-in-time recovery.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>incrementalBackupEnabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies whether to enable incremental backup.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>incrementalCronExpression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The cron expression for the incremental backup schedule. The timezone is in UTC. See <a href="https://en.wikipedia.org/wiki/Cron">https://en.wikipedia.org/wiki/Cron</a>.</p>
 </td>
 </tr>
 </tbody>
@@ -28738,7 +28923,7 @@ Defaults to 1 if unspecified.</p>
 <td>
 <code>defaultTemplateOrdinals</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.Ordinals">
+<a href="#apps.kubeblocks.io/v1.Ordinals">
 Ordinals
 </a>
 </em>
@@ -28796,7 +28981,7 @@ Kubernetes core/v1.PodTemplateSpec
 <td>
 <code>instances</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.InstanceTemplate">
+<a href="#apps.kubeblocks.io/v1.InstanceTemplate">
 []InstanceTemplate
 </a>
 </em>
@@ -28938,7 +29123,7 @@ UpdateStrategy.Type will be set to appsv1.OnDeleteStatefulSetStrategyType if Mem
 <td>
 <code>roles</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.ReplicaRole">
+<a href="#apps.kubeblocks.io/v1.ReplicaRole">
 []ReplicaRole
 </a>
 </em>
@@ -28960,6 +29145,18 @@ MembershipReconfiguration
 <td>
 <em>(Optional)</em>
 <p>Provides actions to do membership dynamic reconfiguration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>templateVars</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Provides variables which are used to call Actions.</p>
 </td>
 </tr>
 <tr>
@@ -29027,9 +29224,6 @@ InstanceSetStatus
 </table>
 <h3 id="workloads.kubeblocks.io/v1.AccessMode">AccessMode
 (<code>string</code> alias)</h3>
-<p>
-(<em>Appears on:</em><a href="#workloads.kubeblocks.io/v1.ReplicaRole">ReplicaRole</a>)
-</p>
 <div>
 <p>AccessMode defines SVC access mode enums.</p>
 </div>
@@ -29255,7 +29449,7 @@ Defaults to 1 if unspecified.</p>
 <td>
 <code>defaultTemplateOrdinals</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.Ordinals">
+<a href="#apps.kubeblocks.io/v1.Ordinals">
 Ordinals
 </a>
 </em>
@@ -29313,7 +29507,7 @@ Kubernetes core/v1.PodTemplateSpec
 <td>
 <code>instances</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.InstanceTemplate">
+<a href="#apps.kubeblocks.io/v1.InstanceTemplate">
 []InstanceTemplate
 </a>
 </em>
@@ -29455,7 +29649,7 @@ UpdateStrategy.Type will be set to appsv1.OnDeleteStatefulSetStrategyType if Mem
 <td>
 <code>roles</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.ReplicaRole">
+<a href="#apps.kubeblocks.io/v1.ReplicaRole">
 []ReplicaRole
 </a>
 </em>
@@ -29477,6 +29671,18 @@ MembershipReconfiguration
 <td>
 <em>(Optional)</em>
 <p>Provides actions to do membership dynamic reconfiguration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>templateVars</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Provides variables which are used to call Actions.</p>
 </td>
 </tr>
 <tr>
@@ -29696,18 +29902,6 @@ Used only when spec.roles set.</p>
 </tr>
 <tr>
 <td>
-<code>readyWithoutPrimary</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Indicates whether it is required for the InstanceSet to have at least one primary instance ready.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>currentRevisions</code><br/>
 <em>
 map[string]string
@@ -29744,201 +29938,6 @@ key is the pod name, value is the revision.</p>
 <td>
 <em>(Optional)</em>
 <p>TemplatesStatus represents status of each instance generated by InstanceTemplates</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="workloads.kubeblocks.io/v1.InstanceTemplate">InstanceTemplate
-</h3>
-<p>
-(<em>Appears on:</em><a href="#workloads.kubeblocks.io/v1.InstanceSetSpec">InstanceSetSpec</a>)
-</p>
-<div>
-<p>InstanceTemplate allows customization of individual replica configurations within a Component,
-without altering the base component template defined in ClusterComponentSpec.
-It enables the application of distinct settings to specific instances (replicas),
-providing flexibility while maintaining a common configuration baseline.</p>
-</div>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name specifies the unique name of the instance Pod created using this InstanceTemplate.
-This name is constructed by concatenating the component&rsquo;s name, the template&rsquo;s name, and the instance&rsquo;s ordinal
-using the pattern: $(cluster.name)-$(component.name)-$(template.name)-$(ordinal). Ordinals start from 0.
-The specified name overrides any default naming conventions or patterns.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>replicas</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies the number of instances (Pods) to create from this InstanceTemplate.
-This field allows setting how many replicated instances of the component,
-with the specific overrides in the InstanceTemplate, are created.
-The default value is 1. A value of 0 disables instance creation.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>ordinals</code><br/>
-<em>
-<a href="#workloads.kubeblocks.io/v1.Ordinals">
-Ordinals
-</a>
-</em>
-</td>
-<td>
-<p>Specifies the desired Ordinals of this InstanceTemplate.
-The Ordinals used to specify the ordinal of the instance (pod) names to be generated under this InstanceTemplate.</p>
-<p>For example, if Ordinals is &#123;ranges: [&#123;start: 0, end: 1&#125;], discrete: [7]&#125;,
-then the instance names generated under this InstanceTemplate would be
-$(cluster.name)-$(component.name)-$(template.name)-0、$(cluster.name)-$(component.name)-$(template.name)-1 and
-$(cluster.name)-$(component.name)-$(template.name)-7</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>annotations</code><br/>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies a map of key-value pairs to be merged into the Pod&rsquo;s existing annotations.
-Existing keys will have their values overwritten, while new keys will be added to the annotations.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>labels</code><br/>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies a map of key-value pairs that will be merged into the Pod&rsquo;s existing labels.
-Values for existing keys will be overwritten, and new keys will be added.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>image</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies an override for the first container&rsquo;s image in the pod.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>schedulingPolicy</code><br/>
-<em>
-<a href="#workloads.kubeblocks.io/v1.SchedulingPolicy">
-SchedulingPolicy
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies the scheduling policy for the Component.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core">
-Kubernetes core/v1.ResourceRequirements
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies an override for the resource requirements of the first container in the Pod.
-This field allows for customizing resource allocation (CPU, memory, etc.) for the container.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>env</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#envvar-v1-core">
-[]Kubernetes core/v1.EnvVar
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Defines Env to override.
-Add new or override existing envs.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>volumes</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#volume-v1-core">
-[]Kubernetes core/v1.Volume
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Defines Volumes to override.
-Add new or override existing volumes.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>volumeMounts</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#volumemount-v1-core">
-[]Kubernetes core/v1.VolumeMount
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Defines VolumeMounts to override.
-Add new or override existing volume mounts of the first container in the pod.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>volumeClaimTemplates</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#persistentvolumeclaim-v1-core">
-[]Kubernetes core/v1.PersistentVolumeClaim
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Defines VolumeClaimTemplates to override.
-Add new or override existing volume claim templates.</p>
 </td>
 </tr>
 </tbody>
@@ -30063,7 +30062,7 @@ string
 <td>
 <code>role</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.ReplicaRole">
+<a href="#apps.kubeblocks.io/v1.ReplicaRole">
 ReplicaRole
 </a>
 </em>
@@ -30194,44 +30193,18 @@ Action
 If the Image is not configured, the Image from the previous non-nil action will be used.</p>
 </td>
 </tr>
-</tbody>
-</table>
-<h3 id="workloads.kubeblocks.io/v1.Ordinals">Ordinals
-</h3>
-<p>
-(<em>Appears on:</em><a href="#workloads.kubeblocks.io/v1.InstanceSetSpec">InstanceSetSpec</a>, <a href="#workloads.kubeblocks.io/v1.InstanceTemplate">InstanceTemplate</a>)
-</p>
-<div>
-<p>Ordinals represents a combination of continuous segments and individual values.</p>
-</div>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td>
-<code>ranges</code><br/>
+<code>switchover</code><br/>
 <em>
-<a href="#workloads.kubeblocks.io/v1.Range">
-[]Range
+<a href="#apps.kubeblocks.io/v1.Action">
+Action
 </a>
 </em>
 </td>
 <td>
-</td>
-</tr>
-<tr>
-<td>
-<code>discrete</code><br/>
-<em>
-[]int32
-</em>
-</td>
-<td>
+<em>(Optional)</em>
+<p>Defines the procedure for a controlled transition of a role to a new replica.</p>
 </td>
 </tr>
 </tbody>
@@ -30260,110 +30233,6 @@ Any attempt to modify other fields will be rejected.</p>
 </td>
 </tr></tbody>
 </table>
-<h3 id="workloads.kubeblocks.io/v1.Range">Range
-</h3>
-<p>
-(<em>Appears on:</em><a href="#workloads.kubeblocks.io/v1.Ordinals">Ordinals</a>)
-</p>
-<div>
-<p>Range represents a range with a start and an end value.
-It is used to define a continuous segment.</p>
-</div>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>start</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>end</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="workloads.kubeblocks.io/v1.ReplicaRole">ReplicaRole
-</h3>
-<p>
-(<em>Appears on:</em><a href="#workloads.kubeblocks.io/v1.InstanceSetSpec">InstanceSetSpec</a>, <a href="#workloads.kubeblocks.io/v1.MemberStatus">MemberStatus</a>)
-</p>
-<div>
-</div>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Defines the role name of the replica.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>accessMode</code><br/>
-<em>
-<a href="#workloads.kubeblocks.io/v1.AccessMode">
-AccessMode
-</a>
-</em>
-</td>
-<td>
-<p>Specifies the service capabilities of this member.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>canVote</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Indicates if this member has voting rights.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>isLeader</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Determines if this member is the leader.</p>
-</td>
-</tr>
-</tbody>
-</table>
 <h3 id="workloads.kubeblocks.io/v1.RoleUpdateMechanism">RoleUpdateMechanism
 (<code>string</code> alias)</h3>
 <div>
@@ -30381,117 +30250,6 @@ bool
 </tr><tr><td><p>&#34;ReadinessProbeEventUpdate&#34;</p></td>
 <td></td>
 </tr></tbody>
-</table>
-<h3 id="workloads.kubeblocks.io/v1.SchedulingPolicy">SchedulingPolicy
-</h3>
-<p>
-(<em>Appears on:</em><a href="#workloads.kubeblocks.io/v1.InstanceTemplate">InstanceTemplate</a>)
-</p>
-<div>
-<p>SchedulingPolicy the scheduling policy.
-Deprecated: Unify with apps/v1alpha1.SchedulingPolicy</p>
-</div>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>schedulerName</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>If specified, the Pod will be dispatched by specified scheduler.
-If not specified, the Pod will be dispatched by default scheduler.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>nodeSelector</code><br/>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>NodeSelector is a selector which must be true for the Pod to fit on a node.
-Selector which must match a node&rsquo;s labels for the Pod to be scheduled on that node.
-More info: <a href="https://kubernetes.io/docs/concepts/configuration/assign-pod-node/">https://kubernetes.io/docs/concepts/configuration/assign-pod-node/</a></p>
-</td>
-</tr>
-<tr>
-<td>
-<code>nodeName</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>NodeName is a request to schedule this Pod onto a specific node. If it is non-empty,
-the scheduler simply schedules this Pod onto that node, assuming that it fits resource
-requirements.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>affinity</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#affinity-v1-core">
-Kubernetes core/v1.Affinity
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies a group of affinity scheduling rules of the Cluster, including NodeAffinity, PodAffinity, and PodAntiAffinity.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>tolerations</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#toleration-v1-core">
-[]Kubernetes core/v1.Toleration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Allows Pods to be scheduled onto nodes with matching taints.
-Each toleration in the array allows the Pod to tolerate node taints based on
-specified <code>key</code>, <code>value</code>, <code>effect</code>, and <code>operator</code>.</p>
-<ul>
-<li>The <code>key</code>, <code>value</code>, and <code>effect</code> identify the taint that the toleration matches.</li>
-<li>The <code>operator</code> determines how the toleration matches the taint.</li>
-</ul>
-<p>Pods with matching tolerations are allowed to be scheduled on tainted nodes, typically reserved for specific purposes.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>topologySpreadConstraints</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#topologyspreadconstraint-v1-core">
-[]Kubernetes core/v1.TopologySpreadConstraint
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>TopologySpreadConstraints describes how a group of Pods ought to spread across topology
-domains. Scheduler will schedule Pods in a way which abides by the constraints.
-All topologySpreadConstraints are ANDed.</p>
-</td>
-</tr>
-</tbody>
 </table>
 <hr/>
 <h2 id="workloads.kubeblocks.io/v1alpha1">workloads.kubeblocks.io/v1alpha1</h2>

@@ -71,12 +71,12 @@ var _ = Describe("OpsUtil functions", func() {
 		inNS := client.InNamespace(testCtx.DefaultNamespace)
 		ml := client.HasLabels{testCtx.TestObjLabelKey}
 		// namespaced
-		testapps.ClearResources(&testCtx, generics.OpsRequestSignature, inNS, ml)
-		testapps.ClearResources(&testCtx, generics.BackupSignature, inNS, ml)
-		testapps.ClearResources(&testCtx, generics.RestoreSignature, inNS, ml)
-		testapps.ClearResources(&testCtx, generics.InstanceSetSignature, inNS, ml)
+		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.OpsRequestSignature, true, inNS, ml)
+		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.BackupSignature, true, inNS, ml)
+		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.RestoreSignature, true, inNS, ml)
+		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.InstanceSetSignature, true, inNS, ml)
 		// default GracePeriod is 30s
-		testapps.ClearResources(&testCtx, generics.PodSignature, inNS, ml, client.GracePeriodSeconds(0))
+		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.PodSignature, true, inNS, ml, client.GracePeriodSeconds(0))
 		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.PersistentVolumeClaimSignature, true, inNS, ml)
 		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.PersistentVolumeSignature, true, ml)
 		testapps.ClearResourcesWithRemoveFinalizerOption(&testCtx, generics.ActionSetSignature, true, ml)
@@ -483,8 +483,8 @@ var _ = Describe("OpsUtil functions", func() {
 			})).Should(Succeed())
 
 			By("mock the new pods to available")
-			testapps.MockInstanceSetPod(&testCtx, nil, clusterName, defaultCompName, podPrefix+"-3", "follower", "Readonly")
-			testapps.MockInstanceSetPod(&testCtx, nil, clusterName, defaultCompName, podPrefix+"-4", "follower", "Readonly")
+			testapps.MockInstanceSetPod(&testCtx, nil, clusterName, defaultCompName, podPrefix+"-3", "follower")
+			testapps.MockInstanceSetPod(&testCtx, nil, clusterName, defaultCompName, podPrefix+"-4", "follower")
 
 			By("expect specified instances to take offline")
 			_, _ = GetOpsManager().Reconcile(reqCtx, k8sClient, opsRes)

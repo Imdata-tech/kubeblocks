@@ -455,6 +455,40 @@ spec:
                       maxLength: 54
                       pattern: ^[a-z0-9]([a-z0-9\.\-]*[a-z0-9])?$
                       type: string
+                    ordinals:
+                      description: |-
+                        Specifies the desired Ordinals of this InstanceTemplate.
+                        The Ordinals used to specify the ordinal of the instance (pod) names to be generated under this InstanceTemplate.
+
+
+                        For example, if Ordinals is {ranges: [{start: 0, end: 1}], discrete: [7]},
+                        then the instance names generated under this InstanceTemplate would be
+                        $(cluster.name)-$(component.name)-$(template.name)-0、$(cluster.name)-$(component.name)-$(template.name)-1 and
+                        $(cluster.name)-$(component.name)-$(template.name)-7
+                      properties:
+                        discrete:
+                          items:
+                            format: int32
+                            type: integer
+                          type: array
+                        ranges:
+                          items:
+                            description: |-
+                              Range represents a range with a start and an end value.
+                              It is used to define a continuous segment.
+                            properties:
+                              end:
+                                format: int32
+                                type: integer
+                              start:
+                                format: int32
+                                type: integer
+                            required:
+                            - end
+                            - start
+                            type: object
+                          type: array
+                      type: object
                     replicas:
                       default: 1
                       description: |-
@@ -1751,6 +1785,13 @@ spec:
                                 description: |-
                                   The name of the StorageClass required by the claim.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
+                                type: string
+                              volumeAttributesClassName:
+                                description: |-
+                                  volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+
+
+                                  More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
                                 type: string
                               volumeMode:
                                 description: Defines what type of volume is required
@@ -4800,18 +4841,16 @@ spec:
                   with other Kubernetes resources, such as modifying Pod labels or sending events.
 
 
-                  Defaults:
-                  If not specified, KubeBlocks automatically assigns a default ServiceAccount named "kb-{cluster.name}",
-                  bound to a default role defined during KubeBlocks installation.
+                  If not specified, KubeBlocks automatically creates a default ServiceAccount named
+                  "kb-{componentdefinition.name}", bound to a role with rules defined in ComponentDefinition's
+                  `policyRules` field. If needed (currently this means if any lifecycleAction is enabled),
+                  it will also be bound to a default role named
+                  "kubeblocks-cluster-pod-role", which is installed together with KubeBlocks.
+                  If multiple components use the same ComponentDefinition, they will share one ServiceAccount.
 
 
-                  Future Changes:
-                  Future versions might change the default ServiceAccount creation strategy to one per Component,
-                  potentially revising the naming to "kb-{cluster.name}-{component.name}".
-
-
-                  Users can override the automatic ServiceAccount assignment by explicitly setting the name of
-                  an existed ServiceAccount in this field.
+                  If the field is not empty, the specified ServiceAccount will be used, and KubeBlocks will not
+                  create a ServiceAccount. But KubeBlocks does create RoleBindings for the specified ServiceAccount.
                 type: string
               serviceRefs:
                 description: |-
@@ -5685,6 +5724,13 @@ spec:
                           description: |-
                             The name of the StorageClass required by the claim.
                             More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
+                          type: string
+                        volumeAttributesClassName:
+                          description: |-
+                            volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+
+
+                            More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
                           type: string
                         volumeMode:
                           description: Defines what type of volume is required by

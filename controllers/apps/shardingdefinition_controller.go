@@ -24,10 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"slices"
 	"strings"
 
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -40,6 +38,10 @@ import (
 	"github.com/apecloud/kubeblocks/pkg/constant"
 	"github.com/apecloud/kubeblocks/pkg/controller/component"
 	intctrlutil "github.com/apecloud/kubeblocks/pkg/controllerutil"
+)
+
+const (
+	shardingDefinitionFinalizerName = "shardingdefinition.kubeblocks.io/finalizer"
 )
 
 //+kubebuilder:rbac:groups=apps.kubeblocks.io,resources=shardingdefinitions,verbs=get;list;watch;create;update;patch;delete
@@ -188,19 +190,71 @@ func (r *ShardingDefinitionReconciler) validateShardsLimit(ctx context.Context, 
 
 func (r *ShardingDefinitionReconciler) validateProvisionNUpdateStrategy(ctx context.Context, cli client.Client,
 	shardingDef *appsv1.ShardingDefinition) error {
+	var (
+		provision = shardingDef.Spec.ProvisionStrategy
+		update    = shardingDef.Spec.UpdateStrategy
+	)
+
 	supported := func(strategy *appsv1.UpdateStrategy) bool {
 		if strategy == nil {
 			return true
 		}
 		return *strategy == appsv1.SerialStrategy || *strategy == appsv1.ParallelStrategy
 	}
-	if !supported(shardingDef.Spec.ProvisionStrategy) {
-		return fmt.Errorf("unsupported provision strategy: %s", *shardingDef.Spec.ProvisionStrategy)
+	if !supported(provision) {
+		return fmt.Errorf("unsupported provision strategy: %s", *provision)
 	}
-	if !supported(shardingDef.Spec.UpdateStrategy) {
-		return fmt.Errorf("unsupported update strategy: %s", *shardingDef.Spec.UpdateStrategy)
+	if !supported(update) {
+		return fmt.Errorf("unsupported update strategy: %s", *update)
+	}
+
+	if provision != nil && *provision == appsv1.SerialStrategy && r.requireParallelProvision() {
+		return fmt.Errorf("serial provision strategy is conflicted with vars that requires parallel provision when mutiple objects matched")
 	}
 	return nil
+}
+
+// requireParallelProvision checks whether the provision strategy must be parallel.
+//
+// If any Vars in the ShardingDefinition have requireAllComponentObjects set to true,
+// all sharding components must exist before Vars resolving can proceed. This requirement
+// conflicts with a serial provision strategy, where components are created one at a time,
+// potentially leading to a logical deadlock.
+func (r *ShardingDefinitionReconciler) requireParallelProvision() bool {
+	requireAll := func(opt *appsv1.MultipleClusterObjectOption) bool {
+		return opt != nil && opt.RequireAllComponentObjects != nil && *opt.RequireAllComponentObjects
+	}
+	require := func(v appsv1.EnvVar) bool {
+		if v.ValueFrom != nil {
+			if v.ValueFrom.HostNetworkVarRef != nil {
+				return requireAll(v.ValueFrom.HostNetworkVarRef.MultipleClusterObjectOption)
+			}
+			if v.ValueFrom.ServiceVarRef != nil {
+				return requireAll(v.ValueFrom.ServiceVarRef.MultipleClusterObjectOption)
+			}
+			if v.ValueFrom.CredentialVarRef != nil {
+				return requireAll(v.ValueFrom.CredentialVarRef.MultipleClusterObjectOption)
+			}
+			if v.ValueFrom.TLSVarRef != nil {
+				return requireAll(v.ValueFrom.TLSVarRef.MultipleClusterObjectOption)
+			}
+			if v.ValueFrom.ServiceRefVarRef != nil {
+				return requireAll(v.ValueFrom.ServiceRefVarRef.MultipleClusterObjectOption)
+			}
+			if v.ValueFrom.ComponentVarRef != nil {
+				return requireAll(v.ValueFrom.ComponentVarRef.MultipleClusterObjectOption)
+			}
+		}
+		return false
+	}
+	for _, compDef := range r.compDefs {
+		for _, v := range compDef.Spec.Vars {
+			if require(v) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (r *ShardingDefinitionReconciler) validateLifecycleActions(ctx context.Context, cli client.Client,
@@ -293,63 +347,4 @@ func (r *ShardingDefinitionReconciler) immutableHash(cli client.Client, rctx int
 	}
 	shardingDef.Annotations[immutableHashAnnotationKey], _ = r.specHash(shardingDef)
 	return cli.Patch(rctx.Ctx, shardingDef, patch)
-}
-
-// resolveShardingDefinition resolves and returns the specific sharding definition object supported.
-func resolveShardingDefinition(ctx context.Context, cli client.Reader, shardingDefName string) (*appsv1.ShardingDefinition, error) {
-	shardingDefs, err := listShardingDefinitionsWithPattern(ctx, cli, shardingDefName)
-	if err != nil {
-		return nil, err
-	}
-	if len(shardingDefs) == 0 {
-		return nil, fmt.Errorf("no sharding definition found for the specified name: %s", shardingDefName)
-	}
-
-	m := make(map[string]int)
-	for i, def := range shardingDefs {
-		m[def.Name] = i
-	}
-	// choose the latest one
-	names := maps.Keys(m)
-	slices.Sort(names)
-	latestName := names[len(names)-1]
-
-	return shardingDefs[m[latestName]], nil
-}
-
-// listShardingDefinitionsWithPattern returns all sharding definitions whose names match the given pattern
-func listShardingDefinitionsWithPattern(ctx context.Context, cli client.Reader, name string) ([]*appsv1.ShardingDefinition, error) {
-	shardingDefList := &appsv1.ShardingDefinitionList{}
-	if err := cli.List(ctx, shardingDefList); err != nil {
-		return nil, err
-	}
-	fullyMatched := make([]*appsv1.ShardingDefinition, 0)
-	patternMatched := make([]*appsv1.ShardingDefinition, 0)
-	for i, item := range shardingDefList.Items {
-		if item.Name == name {
-			fullyMatched = append(fullyMatched, &shardingDefList.Items[i])
-		}
-		if component.PrefixOrRegexMatched(item.Name, name) {
-			patternMatched = append(patternMatched, &shardingDefList.Items[i])
-		}
-	}
-	if len(fullyMatched) > 0 {
-		return fullyMatched, nil
-	}
-	return patternMatched, nil
-}
-
-func validateShardingShards(shardingDef *appsv1.ShardingDefinition, sharding *appsv1.ClusterSharding) error {
-	var (
-		limit  = shardingDef.Spec.ShardsLimit
-		shards = sharding.Shards
-	)
-	if limit == nil || (shards >= limit.MinShards && shards <= limit.MaxShards) {
-		return nil
-	}
-	return shardsOutOfLimitError(sharding.Name, shards, *limit)
-}
-
-func shardsOutOfLimitError(shardingName string, shards int32, limit appsv1.ShardsLimit) error {
-	return fmt.Errorf("shards %d out-of-limit [%d, %d], sharding: %s", shards, limit.MinShards, limit.MaxShards, shardingName)
 }
